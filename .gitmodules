@@ -1,0 +1,3 @@
+[submodule "crypto-profit-app"]
+	path = crypto-profit-app
+	url = git@github.com:marvinok26/Crypto-Mobile.git

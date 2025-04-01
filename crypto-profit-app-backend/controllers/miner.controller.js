@@ -10,17 +10,18 @@ const notificationService = require('../services/notification.service');
 /**
  * Get all available miners
  */
-const getAllMiners = async (req, res) => {
+const getAllMiners = async (request, reply) => {
   try {
     const miners = await Miner.find({ isActive: true });
     
-    return res.status(200).json({
+    // Fastify response style
+    return reply.send({
       success: true,
       miners
     });
   } catch (error) {
     console.error('Get all miners error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred while fetching miners' 
     });
@@ -30,38 +31,50 @@ const getAllMiners = async (req, res) => {
 /**
  * Get user's miners
  */
-const getUserMiners = async (req, res) => {
+const getUserMiners = async (request, reply) => {
   try {
-    const userId = req.user.id;
+    const userId = request.user.id;
     
+    // Get all user miners
     const userMiners = await UserMiner.find({ userId });
     
-    // Get miner details for each user miner
-    const minerDetails = await Promise.all(
-      userMiners.map(async (userMiner) => {
-        const miner = await Miner.findOne({ minerId: userMiner.minerId });
-        
-        return {
-          id: userMiner._id,
-          minerId: userMiner.minerId,
-          name: miner ? miner.name : 'Unknown Miner',
-          purchaseAmount: userMiner.purchaseAmount,
-          profitRate: userMiner.profitRate,
-          dailyProfit: userMiner.purchaseAmount * userMiner.profitRate,
-          totalProfit: userMiner.totalProfit,
-          isActive: userMiner.isActive,
-          purchasedAt: userMiner.createdAt
-        };
-      })
-    );
+    // Get all miner IDs from user miners
+    const minerIds = userMiners.map(um => um.minerId);
     
-    return res.status(200).json({
+    // Get all miners in one query
+    const miners = await Miner.find({ minerId: { $in: minerIds } });
+    
+    // Create a map for quick lookup
+    const minerMap = {};
+    miners.forEach(miner => {
+      minerMap[miner.minerId] = miner;
+    });
+    
+    // Map user miners to response format
+    const minerDetails = userMiners.map(userMiner => {
+      const miner = minerMap[userMiner.minerId] || {};
+      
+      return {
+        id: userMiner._id,
+        minerId: userMiner.minerId,
+        name: miner.name || 'Unknown Miner',
+        purchaseAmount: userMiner.purchaseAmount || 0,
+        profitRate: userMiner.profitRate || 0,
+        dailyProfit: (userMiner.purchaseAmount || 0) * (userMiner.profitRate || 0),
+        totalProfit: userMiner.totalProfit || 0,
+        isActive: !!userMiner.isActive,
+        purchasedAt: userMiner.createdAt
+      };
+    });
+    
+    // Fastify response style
+    return reply.send({
       success: true,
       miners: minerDetails
     });
   } catch (error) {
     console.error('Get user miners error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred while fetching user miners' 
     });
@@ -71,13 +84,13 @@ const getUserMiners = async (req, res) => {
 /**
  * Purchase a miner
  */
-const purchaseMiner = async (req, res) => {
+const purchaseMiner = async (request, reply) => {
   try {
-    const userId = req.user.id;
-    const { minerId, amount } = req.body;
+    const userId = request.user.id;
+    const { minerId, amount } = request.body;
     
     if (!minerId || !amount) {
-      return res.status(400).json({ 
+      return reply.code(400).send({ 
         success: false, 
         message: 'Miner ID and amount are required' 
       });
@@ -86,7 +99,7 @@ const purchaseMiner = async (req, res) => {
     const purchaseAmount = parseFloat(amount);
     
     if (isNaN(purchaseAmount) || purchaseAmount <= 0) {
-      return res.status(400).json({ 
+      return reply.code(400).send({ 
         success: false, 
         message: 'Invalid purchase amount' 
       });
@@ -95,7 +108,7 @@ const purchaseMiner = async (req, res) => {
     // Find the miner
     const miner = await Miner.findOne({ minerId, isActive: true });
     if (!miner) {
-      return res.status(404).json({ 
+      return reply.code(404).send({ 
         success: false, 
         message: 'Miner not found or inactive' 
       });
@@ -104,7 +117,7 @@ const purchaseMiner = async (req, res) => {
     // Check if user has enough balance
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ 
+      return reply.code(404).send({ 
         success: false, 
         message: 'User not found' 
       });
@@ -113,7 +126,7 @@ const purchaseMiner = async (req, res) => {
     const totalCost = purchaseAmount;
     
     if (user.balance < totalCost) {
-      return res.status(400).json({ 
+      return reply.code(400).send({ 
         success: false, 
         message: 'Insufficient balance' 
       });
@@ -207,7 +220,8 @@ const purchaseMiner = async (req, res) => {
     // Send purchase confirmation email
     await notificationService.sendMinerPurchaseEmail(user, miner, totalCost);
     
-    return res.status(200).json({
+    // Fastify response style
+    return reply.send({
       success: true,
       message: 'Miner purchased successfully',
       miner: {
@@ -228,7 +242,7 @@ const purchaseMiner = async (req, res) => {
     });
   } catch (error) {
     console.error('Purchase miner error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred while purchasing miner' 
     });
@@ -238,13 +252,13 @@ const purchaseMiner = async (req, res) => {
 /**
  * Activate/deactivate user's miner
  */
-const toggleMinerStatus = async (req, res) => {
+const toggleMinerStatus = async (request, reply) => {
   try {
-    const userId = req.user.id;
-    const { userMinerId, active } = req.body;
+    const userId = request.user.id;
+    const { userMinerId, active } = request.body;
     
     if (!userMinerId) {
-      return res.status(400).json({ 
+      return reply.code(400).send({ 
         success: false, 
         message: 'Miner ID is required' 
       });
@@ -253,7 +267,7 @@ const toggleMinerStatus = async (req, res) => {
     // Find the user miner
     const userMiner = await UserMiner.findOne({ _id: userMinerId, userId });
     if (!userMiner) {
-      return res.status(404).json({ 
+      return reply.code(404).send({ 
         success: false, 
         message: 'Miner not found or does not belong to user' 
       });
@@ -263,7 +277,8 @@ const toggleMinerStatus = async (req, res) => {
     userMiner.isActive = active !== undefined ? active : !userMiner.isActive;
     await userMiner.save();
     
-    return res.status(200).json({
+    // Fastify response style
+    return reply.send({
       success: true,
       message: `Miner ${userMiner.isActive ? 'activated' : 'deactivated'} successfully`,
       miner: {
@@ -273,7 +288,7 @@ const toggleMinerStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Toggle miner status error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred while updating miner status' 
     });

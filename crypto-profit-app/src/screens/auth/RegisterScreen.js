@@ -3,14 +3,19 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
+import { router, useLocalSearchParams } from 'expo-router'; // Import useLocalSearchParams
 import Typography from '../../components/ui/Typography';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { isValidEmail, isValidReferralCode } from '../../utils/validation.utils';
 
-const RegisterScreen = ({ navigation, route }) => {
+const RegisterScreen = () => {
   const { register } = useAuth();
-  const initialReferralCode = route.params?.referralCode || '';
+  
+  // Get URL params using Expo Router's hook
+  const params = useLocalSearchParams();
+  // Safely access the referralCode parameter or default to empty string
+  const initialReferralCode = params?.referralCode || '';
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -39,6 +44,7 @@ const RegisterScreen = ({ navigation, route }) => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
+    // Only validate referral code if one is provided
     if (referralCode && !isValidReferralCode(referralCode)) {
       newErrors.referralCode = 'Invalid referral code format';
     }
@@ -75,7 +81,7 @@ const RegisterScreen = ({ navigation, route }) => {
             {/* App Logo */}
             <View className="items-center mb-4">
               <Image 
-                source={require('../../assets/images/logo.png')} 
+                source={require('../../../assets/images/logo.svg')} 
                 resizeMode="contain"
                 className="w-20 h-20"
               />
@@ -157,7 +163,7 @@ const RegisterScreen = ({ navigation, route }) => {
                 <Typography variant="body" className="text-slate-500">
                   Already have an account?
                 </Typography>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <TouchableOpacity onPress={() => router.push('/login')}>
                   <Typography variant="body" className="text-blue-600 ml-1 font-medium">
                     Login
                   </Typography>

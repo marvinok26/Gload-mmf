@@ -1,5 +1,7 @@
 // src/context/AuthContext.js
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
+import { router } from 'expo-router';
 import api from '../services/api.service';
 
 // Create the context
@@ -9,7 +11,13 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState(null);
+
+  // Check for existing session on app start
+  useEffect(() => {
+    setInitializing(false);
+  }, []);
 
   // Register user
   const register = async (name, email, password, referralCode = null) => {
@@ -17,33 +25,36 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      // For development, we can mock a successful registration
-      const mockUser = {
-        id: 'user-1',
-        name,
-        email,
-        balance: 100.0,
-        totalProfit: 0,
-        referralCode: 'ABC12345',
-        depositAddress: 'T' + Math.random().toString(36).substring(2, 15).toUpperCase()
-      };
-      
-      const mockToken = 'mock-token-' + Date.now();
-      
-      // Set state
-      setUser(mockUser);
-      setToken(mockToken);
-      
-      // Set auth header
-      if (api.setAuthToken) {
-        api.setAuthToken(mockToken);
+      // Create request data
+      const userData = { name, email, password };
+      if (referralCode) {
+        userData.referralCode = referralCode;
       }
+
+      // Make API call to register endpoint
+      const response = await api.post('/api/auth/register', userData);
       
-      return { success: true };
+      if (response.success) {
+        // Set user data and token
+        setUser(response.user);
+        setToken(response.token);
+        
+        // Set authorization header for future requests
+        api.setAuthToken(response.token);
+        
+        // Navigate to the main app
+        router.replace('/(tabs)');
+        
+        return { success: true };
+      } else {
+        setError(response.message || 'Registration failed');
+        return { success: false, error: response.message };
+      }
     } catch (error) {
       console.error('Registration error:', error);
-      setError('Registration failed');
-      return { success: false, error: 'Registration failed' };
+      const errorMessage = error.response?.data?.message || 'Registration failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -55,33 +66,30 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      // For development, we can mock a successful login
-      const mockUser = {
-        id: 'user-1',
-        name: 'Test User',
-        email,
-        balance: 100.0,
-        totalProfit: 25.5,
-        referralCode: 'ABC12345',
-        depositAddress: 'T' + Math.random().toString(36).substring(2, 15).toUpperCase()
-      };
+      // Make API call to login endpoint
+      const response = await api.post('/api/auth/login', { email, password });
       
-      const mockToken = 'mock-token-' + Date.now();
-      
-      // Set state
-      setUser(mockUser);
-      setToken(mockToken);
-      
-      // Set auth header
-      if (api.setAuthToken) {
-        api.setAuthToken(mockToken);
+      if (response.success) {
+        // Set user data and token
+        setUser(response.user);
+        setToken(response.token);
+        
+        // Set authorization header for future requests
+        api.setAuthToken(response.token);
+        
+        // Navigate to the main app
+        router.replace('/(tabs)');
+        
+        return { success: true };
+      } else {
+        setError(response.message || 'Login failed');
+        return { success: false, error: response.message };
       }
-      
-      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      setError('Login failed');
-      return { success: false, error: 'Login failed' };
+      const errorMessage = error.response?.data?.message || 'Login failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -89,16 +97,21 @@ export const AuthProvider = ({ children }) => {
 
   // Logout user
   const logout = async () => {
-    // Clear state
-    setToken(null);
-    setUser(null);
-    
-    // Clear auth header
-    if (api.clearAuthToken) {
+    try {
+      setUser(null);
+      setToken(null);
+      
+      // Clear auth header
       api.clearAuthToken();
+      
+      // Navigate to login screen
+      router.replace('/login');
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      return { success: false, error: error.message };
     }
-    
-    return { success: true };
   };
 
   // Update user data
@@ -106,11 +119,17 @@ export const AuthProvider = ({ children }) => {
     if (!token) return { success: false, error: 'Not authenticated' };
     
     try {
-      // For development, we can just return the current user
-      return { success: true };
+      const response = await api.get('/api/auth/me');
+      
+      if (response.success) {
+        setUser(response.user);
+        return { success: true };
+      } else {
+        return { success: false, error: response.message };
+      }
     } catch (error) {
       console.error('Error refreshing user data:', error);
-      return { success: false, error: 'Failed to refresh user data' };
+      return { success: false, error: error.message };
     }
   };
 
@@ -121,6 +140,7 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated: !!user,
         loading,
+        initializing,
         error,
         register,
         login,

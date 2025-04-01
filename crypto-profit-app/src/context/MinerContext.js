@@ -15,9 +15,24 @@ export const MinerProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
+  // Debug logs for initialization
+  useEffect(() => {
+    console.log('MinerContext initialized');
+    console.log('User authenticated:', !!user);
+    console.log('Token available:', !!token);
+  }, []);
+  
   // Load miners when user is authenticated
   useEffect(() => {
+    console.log('Auth state changed, user:', !!user, 'token:', !!token);
+    
     if (user && token) {
+      loadMiners();
+      loadUserMiners();
+    } else {
+      // For development only - load miners even without auth
+      // Remove this in production
+      console.log('DEV MODE: Loading miners without auth');
       loadMiners();
       loadUserMiners();
     }
@@ -41,16 +56,23 @@ export const MinerProvider = ({ children }) => {
   
   // Get available miners
   const loadMiners = async () => {
-    if (!user || !token) return;
-    
+    console.log('Loading miners...');
     setLoading(true);
     try {
       const response = await minerService.getAvailableMiners();
+      console.log('Miners response:', response);
       
       if (response.success) {
         setMiners(response.miners);
+        console.log(`Loaded ${response.miners.length} miners`);
       } else {
+        console.error('Failed to load miners:', response.message);
         setError(response.message || 'Failed to load miners');
+        
+        // Alert only in development
+        if (__DEV__) {
+          Alert.alert('Dev Error', `Failed to load miners: ${response.message}`);
+        }
       }
     } catch (error) {
       console.error('Error loading miners:', error);
@@ -62,16 +84,23 @@ export const MinerProvider = ({ children }) => {
   
   // Get user's miners
   const loadUserMiners = async () => {
-    if (!user || !token) return;
-    
+    console.log('Loading user miners...');
     setLoading(true);
     try {
       const response = await minerService.getUserMiners();
+      console.log('User miners response:', response);
       
       if (response.success) {
         setUserMiners(response.miners);
+        console.log(`Loaded ${response.miners.length} user miners`);
       } else {
+        console.error('Failed to load user miners:', response.message);
         setError(response.message || 'Failed to load your miners');
+        
+        // Alert only in development
+        if (__DEV__) {
+          Alert.alert('Dev Error', `Failed to load user miners: ${response.message}`);
+        }
       }
     } catch (error) {
       console.error('Error loading user miners:', error);
@@ -83,7 +112,12 @@ export const MinerProvider = ({ children }) => {
   
   // Purchase a miner
   const purchaseMiner = async (minerId, amount) => {
-    if (!user || !token) return { success: false, error: 'Not authenticated' };
+    console.log(`Purchasing miner ${minerId} for ${amount}...`);
+    
+    // For development, allow without auth
+    if (!user && !token && !__DEV__) {
+      return { success: false, error: 'Not authenticated' };
+    }
     
     if (!minerId) {
       return { success: false, error: 'Miner ID is required' };
@@ -96,15 +130,20 @@ export const MinerProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await minerService.purchaseMiner(minerId, amount);
+      console.log('Purchase response:', response);
       
       if (response.success) {
         // Refresh user data to update balance
-        await refreshUserData();
+        if (refreshUserData) {
+          await refreshUserData();
+        }
+        
         // Refresh user miners
         await loadUserMiners();
         
         return { success: true, miner: response.miner };
       } else {
+        console.error('Miner purchase failed:', response.message);
         setError(response.message || 'Miner purchase failed');
         return { success: false, error: response.message };
       }
@@ -119,7 +158,12 @@ export const MinerProvider = ({ children }) => {
   
   // Activate/deactivate a miner
   const toggleMinerStatus = async (userMinerId, active) => {
-    if (!user || !token) return { success: false, error: 'Not authenticated' };
+    console.log(`Toggling miner ${userMinerId} to ${active ? 'active' : 'inactive'}...`);
+    
+    // For development, allow without auth
+    if (!user && !token && !__DEV__) {
+      return { success: false, error: 'Not authenticated' };
+    }
     
     if (!userMinerId) {
       return { success: false, error: 'Miner ID is required' };
@@ -128,6 +172,7 @@ export const MinerProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await minerService.toggleMinerStatus(userMinerId, active);
+      console.log('Toggle response:', response);
       
       if (response.success) {
         // Refresh user miners
@@ -135,6 +180,7 @@ export const MinerProvider = ({ children }) => {
         
         return { success: true };
       } else {
+        console.error('Failed to update miner status:', response.message);
         setError(response.message || 'Failed to update miner status');
         return { success: false, error: response.message };
       }

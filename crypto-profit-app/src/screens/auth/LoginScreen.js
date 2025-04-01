@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
+import { router } from 'expo-router'; // Import router from expo-router
 import Typography from '../../components/ui/Typography';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { isValidEmail } from '../../utils/validation.utils';
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = () => { // Remove navigation prop
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,8 +58,9 @@ const LoginScreen = ({ navigation }) => {
           <View className="flex-1 justify-center px-5 py-6">
             {/* App Logo */}
             <View className="items-center mb-6">
+              {/* Use a different image since .svg might not work directly */}
               <Image 
-                source={require('../../assets/images/logo.png')} 
+                source={require('../../../assets/images/logo.svg')} 
                 resizeMode="contain"
                 className="w-24 h-24"
               />
@@ -110,7 +112,7 @@ const LoginScreen = ({ navigation }) => {
                 <Typography variant="body" className="text-slate-500">
                   Don't have an account?
                 </Typography>
-                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <TouchableOpacity onPress={() => router.push('/register')}>
                   <Typography variant="body" className="text-blue-600 ml-1 font-medium">
                     Register
                   </Typography>

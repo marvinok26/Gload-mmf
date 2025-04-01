@@ -4,12 +4,40 @@ import { View, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Typography from '../ui/Typography';
 
-const MinerAnimation = ({ active = true }) => {
+const MinerAnimation = ({ active = true, tier = 'basic' }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const particleAnim1 = useRef(new Animated.Value(0)).current;
   const particleAnim2 = useRef(new Animated.Value(0)).current;
   const particleAnim3 = useRef(new Animated.Value(0)).current;
+  
+  // Get tier-based colors
+  const getTierColors = () => {
+    if (tier === 'basic') {
+      return {
+        primary: '#3B82F6', // blue-500
+        secondary: '#93C5FD', // blue-300
+        tertiary: '#DBEAFE', // blue-100
+        icon: '#FFFFFF' // white
+      };
+    } else if (tier === 'advanced') {
+      return {
+        primary: '#8B5CF6', // purple-500
+        secondary: '#C4B5FD', // purple-300
+        tertiary: '#EDE9FE', // purple-100
+        icon: '#FFFFFF' // white
+      };
+    } else {
+      return {
+        primary: '#F59E0B', // amber-500
+        secondary: '#FCD34D', // amber-300
+        tertiary: '#FEF3C7', // amber-100
+        icon: '#FFFFFF' // white
+      };
+    }
+  };
+  
+  const colors = getTierColors();
   
   useEffect(() => {
     if (active) {
@@ -17,6 +45,10 @@ const MinerAnimation = ({ active = true }) => {
     } else {
       stopAnimations();
     }
+    
+    return () => {
+      stopAnimations();
+    };
   }, [active]);
   
   const startAnimations = () => {
@@ -54,7 +86,7 @@ const MinerAnimation = ({ active = true }) => {
     animateParticle(particleAnim3, 1000);
   };
 
-const animateParticle = (anim, delay) => {
+  const animateParticle = (anim, delay) => {
     Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
@@ -86,8 +118,20 @@ const animateParticle = (anim, delay) => {
     outputRange: ['0deg', '360deg']
   });
   
+  const getParticleColor = (index) => {
+    if (index === 0) return colors.secondary;
+    if (index === 1) return colors.tertiary;
+    return colors.primary;
+  };
+  
   return (
-    <View className="items-center justify-center h-40">
+    <View className="items-center justify-center h-40 relative">
+      {/* Mining glow effect (when active) */}
+      {active && (
+        <View className="absolute w-32 h-32 rounded-full opacity-30" 
+              style={{ backgroundColor: colors.tertiary }} />
+      )}
+      
       {/* Main miner */}
       <Animated.View 
         style={{ 
@@ -96,10 +140,11 @@ const animateParticle = (anim, delay) => {
             { rotate }
           ]
         }}
-        className="items-center justify-center"
+        className="items-center justify-center z-10"
       >
-        <View className="bg-blue-500 w-20 h-20 rounded-lg items-center justify-center">
-          <Ionicons name="server" size={36} color="#FFFFFF" />
+        <View className="w-24 h-24 rounded-xl items-center justify-center shadow-md"
+              style={{ backgroundColor: colors.primary }}>
+          <Ionicons name="server" size={42} color={colors.icon} />
         </View>
       </Animated.View>
       
@@ -127,7 +172,7 @@ const animateParticle = (anim, delay) => {
               ]
             }}
           >
-            <View className="w-3 h-3 rounded-full bg-yellow-400" />
+            <View className="w-4 h-4 rounded-full" style={{ backgroundColor: getParticleColor(0) }} />
           </Animated.View>
           
           <Animated.View
@@ -151,7 +196,7 @@ const animateParticle = (anim, delay) => {
               ]
             }}
           >
-            <View className="w-3 h-3 rounded-full bg-green-400" />
+            <View className="w-3 h-3 rounded-full" style={{ backgroundColor: getParticleColor(1) }} />
           </Animated.View>
           
           <Animated.View
@@ -175,13 +220,13 @@ const animateParticle = (anim, delay) => {
               ]
             }}
           >
-            <View className="w-3 h-3 rounded-full bg-blue-400" />
+            <View className="w-5 h-5 rounded-full" style={{ backgroundColor: getParticleColor(2) }} />
           </Animated.View>
         </>
       )}
       
       <View className="mt-4">
-        <Typography variant="caption" className={active ? 'text-green-600' : 'text-gray-500'}>
+        <Typography variant="caption" className={active ? 'text-green-600 font-semibold' : 'text-gray-500'}>
           {active ? 'Mining in progress' : 'Mining inactive'}
         </Typography>
       </View>

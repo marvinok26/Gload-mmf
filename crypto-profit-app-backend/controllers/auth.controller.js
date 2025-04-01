@@ -9,14 +9,14 @@ const notificationService = require('../services/notification.service');
 /**
  * Register a new user
  */
-const register = async (req, res) => {
+const register = async (req, reply) => {
   try {
     const { name, email, password, referralCode } = req.body;
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ 
+      return reply.code(400).send({ 
         success: false, 
         message: 'Email is already registered' 
       });
@@ -59,8 +59,10 @@ const register = async (req, res) => {
         await newReferral.save();
       }
       
-      // Send welcome email
-      await notificationService.sendWelcomeEmail(updatedUser);
+      // Send welcome email (only in production)
+      if (process.env.NODE_ENV === 'production') {
+        await notificationService.sendWelcomeEmail(updatedUser);
+      }
       
       // Generate JWT token
       const token = jwt.sign(
@@ -70,7 +72,7 @@ const register = async (req, res) => {
       );
       
       // Return user data (without sensitive info) and token
-      return res.status(201).json({
+      return reply.code(201).send({
         success: true,
         message: 'User registered successfully',
         token,
@@ -87,7 +89,7 @@ const register = async (req, res) => {
         { expiresIn: jwtConfig.expiresIn }
       );
       
-      return res.status(201).json({
+      return reply.code(201).send({
         success: true,
         message: 'User registered successfully, but deposit address could not be generated. Please try logging in again.',
         token,
@@ -96,7 +98,7 @@ const register = async (req, res) => {
     }
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred during registration' 
     });
@@ -106,14 +108,14 @@ const register = async (req, res) => {
 /**
  * Login user
  */
-const login = async (req, res) => {
+const login = async (req, reply) => {
   try {
     const { email, password } = req.body;
 
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ 
+      return reply.code(401).send({ 
         success: false, 
         message: 'Invalid email or password' 
       });
@@ -122,7 +124,7 @@ const login = async (req, res) => {
     // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ 
+      return reply.code(401).send({ 
         success: false, 
         message: 'Invalid email or password' 
       });
@@ -153,7 +155,7 @@ const login = async (req, res) => {
     );
 
     // Return user data and token
-    return res.status(200).json({
+    return reply.code(200).send({
       success: true,
       message: 'Login successful',
       token,
@@ -161,7 +163,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ 
+    return reply.code(500).send({ 
       success: false, 
       message: 'An error occurred during login' 
     });
